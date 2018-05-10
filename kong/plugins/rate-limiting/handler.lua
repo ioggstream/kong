@@ -12,6 +12,13 @@ local ngx_timer_at = ngx.timer.at
 
 local RATELIMIT_LIMIT = "X-RateLimit-Limit"
 local RATELIMIT_REMAINING = "X-RateLimit-Remaining"
+local RATELIMIT_RESET = "X-RateLimit-Reset"
+
+local SECONDS_IN_PERIOD = {
+  second = 1,
+  minute = 60,
+  hour = 3600
+}
 
 local RateLimitingHandler = BasePlugin:extend()
 
@@ -103,6 +110,18 @@ function RateLimitingHandler:access(conf)
       for k, v in pairs(usage) do
         ngx.header[RATELIMIT_LIMIT .. "-" .. k] = v.limit
         ngx.header[RATELIMIT_REMAINING .. "-" .. k] = math.max(0, (stop == nil or stop == k) and v.remaining - 1 or v.remaining) -- -increment_value for this current request
+      end
+
+      -- Find the closer limit.
+      local closer_limit = 0
+      for k, v in pairs(usage) do
+        if (closer_limit == 0 or closer_limit > v.remaining) then
+          closer_limit = v.remaining
+          ngx.header[RATELIMIT_LIMIT] = v.remaining
+          ngx.header[RATELIMIT_REMAINING] = v.limit
+          -- Add a little jitter to the expected reset time.
+          ngx.header[RATELIMIT_RESET] = math.random(0,10) + SECONDS_IN_PERIOD[k] - (current_timestamp/1000 % SECONDS_IN_PERIOD[k])
+        end
       end
     end
 
