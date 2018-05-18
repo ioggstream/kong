@@ -14,15 +14,7 @@ local RATELIMIT_LIMIT = "X-RateLimit-Limit"
 local RATELIMIT_REMAINING = "X-RateLimit-Remaining"
 local RATELIMIT_RESET = "X-RateLimit-Reset"
 local RETRY_AFTER = "Retry-After"
-
-local EXPIRATIONS = {
-  second = 1,
-  minute = 60,
-  hour = 3600,
-  day = 86400,
-  month = 2592000,
-  year = 31536000,
-}
+local EXPIRATIONS = policies["EXPIRATIONS"]
 
 local RateLimitingHandler = BasePlugin:extend()
 
@@ -134,7 +126,7 @@ function RateLimitingHandler:access(conf)
 
     -- If limit is exceeded, terminate the request
     if stop then
-      -- ngx.header[RETRY_AFTER] = EXPIRATIONS[k] - (current_timestamp/1000 % EXPIRATIONS[k])
+      ngx.header[RETRY_AFTER] = ngx.header[RATELIMIT_RESET]
       return responses.send(429, "API rate limit exceeded")
     end
   end
