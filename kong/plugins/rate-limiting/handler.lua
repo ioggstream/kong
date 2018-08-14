@@ -12,6 +12,9 @@ local ngx_timer_at = ngx.timer.at
 
 local RATELIMIT_LIMIT = "X-RateLimit-Limit"
 local RATELIMIT_REMAINING = "X-RateLimit-Remaining"
+local RATELIMIT_RESET = "X-RateLimit-Reset"
+local RETRY_AFTER = "Retry-After"
+local EXPIRATIONS = policies["EXPIRATIONS"]
 
 local RateLimitingHandler = BasePlugin:extend()
 
@@ -100,14 +103,30 @@ function RateLimitingHandler:access(conf)
   if usage then
     -- Adding headers
     if not conf.hide_client_headers then
+      -- Find the closer limit.
+      local lowest = nil
       for k, v in pairs(usage) do
         ngx.header[RATELIMIT_LIMIT .. "-" .. k] = v.limit
         ngx.header[RATELIMIT_REMAINING .. "-" .. k] = math.max(0, (stop == nil or stop == k) and v.remaining - 1 or v.remaining) -- -increment_value for this current request
+
+        if (lowest == nil
+            or usage[lowest].remaining > v.remaining
+            or (usage[lowest].remaining == v.remaining and EXPIRATIONS[k] > EXPIRATIONS[lowest])
+           ) then
+          lowest = k
+        end
+
       end
+
+      ngx.header[RATELIMIT_LIMIT] = usage[lowest].limit
+      ngx.header[RATELIMIT_REMAINING] = usage[lowest].remaining
+      -- Set the expected reset time.
+      ngx.header[RATELIMIT_RESET] = EXPIRATIONS[lowest] - (current_timestamp/1000 % EXPIRATIONS[lowest])
     end
 
     -- If limit is exceeded, terminate the request
     if stop then
+      ngx.header[RETRY_AFTER] = ngx.header[RATELIMIT_RESET]
       return responses.send(429, "API rate limit exceeded")
     end
   end
