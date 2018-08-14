@@ -260,6 +260,8 @@ for _, strategy in helpers.each_strategy() do
             assert.res_status(200, res)
             assert.are.same(6, tonumber(res.headers["x-ratelimit-limit-minute"]))
             assert.are.same(6 - i, tonumber(res.headers["x-ratelimit-remaining-minute"]))
+            assert.are.same(6, tonumber(res.headers["x-ratelimit-limit"]))
+            assert.are.same(6 - i, tonumber(res.headers["x-ratelimit-remaining"]))
           end
 
           -- Additonal request, while limit is 6/minute
@@ -269,6 +271,7 @@ for _, strategy in helpers.each_strategy() do
           local body = assert.res_status(429, res)
           local json = cjson.decode(body)
           assert.same({ message = "API rate limit exceeded" }, json)
+          assert.are.same(6, tonumber(res.headers["retry-after"]))
         end)
 
         it("counts against the same service register from different routes", function()
@@ -281,6 +284,8 @@ for _, strategy in helpers.each_strategy() do
             assert.res_status(200, res)
             assert.are.same(6, tonumber(res.headers["x-ratelimit-limit-minute"]))
             assert.are.same(6 - i, tonumber(res.headers["x-ratelimit-remaining-minute"]))
+            assert.are.same(6, tonumber(res.headers["x-ratelimit-limit"]))
+            assert.are.same(6 - i, tonumber(res.headers["x-ratelimit-remaining"]))
           end
 
           for i = 4, 6 do
@@ -292,6 +297,8 @@ for _, strategy in helpers.each_strategy() do
             assert.res_status(200, res)
             assert.are.same(6, tonumber(res.headers["x-ratelimit-limit-minute"]))
             assert.are.same(6 - i, tonumber(res.headers["x-ratelimit-remaining-minute"]))
+            assert.are.same(6, tonumber(res.headers["x-ratelimit-limit"]))
+            assert.are.same(6 - i, tonumber(res.headers["x-ratelimit-remaining"]))
           end
 
           -- Additonal request, while limit is 6/minute
@@ -301,6 +308,7 @@ for _, strategy in helpers.each_strategy() do
           local body = assert.res_status(429, res)
           local json = cjson.decode(body)
           assert.same({ message = "API rate limit exceeded" }, json)
+          assert.are.same(6, tonumber(res.headers["retry-after"]))
         end)
 
         it("handles multiple limits", function()
@@ -321,6 +329,9 @@ for _, strategy in helpers.each_strategy() do
             assert.are.same(limits.minute - i, tonumber(res.headers["x-ratelimit-remaining-minute"]))
             assert.are.same(limits.hour, tonumber(res.headers["x-ratelimit-limit-hour"]))
             assert.are.same(limits.hour - i, tonumber(res.headers["x-ratelimit-remaining-hour"]))
+            -- minute is lower than hour, so we use limits.minute  
+            assert.are.same(limits.minute, tonumber(res.headers["x-ratelimit-limit"]))
+            assert.are.same(limits.minute - i, tonumber(res.headers["x-ratelimit-remaining"]))
           end
 
           local res = proxy_client():get("/status/200", {
@@ -332,6 +343,8 @@ for _, strategy in helpers.each_strategy() do
           assert.same({ message = "API rate limit exceeded" }, json)
           assert.are.equal(2, tonumber(res.headers["x-ratelimit-remaining-hour"]))
           assert.are.equal(0, tonumber(res.headers["x-ratelimit-remaining-minute"]))
+          -- retry in a minute
+          assert.are.same(60, tonumber(res.headers["retry-after"]))
         end)
       end)
       describe("With authentication", function()
