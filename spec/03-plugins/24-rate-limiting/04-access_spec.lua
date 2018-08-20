@@ -57,7 +57,7 @@ end
 
 for _, strategy in helpers.each_strategy() do
   for _, policy in ipairs({"local", "cluster", "redis"}) do
-    describe(fmt("#flaky Plugin: rate-limiting (access) with policy: %s [#%s]", policy, strategy), function()
+    describe(fmt("Plugin: rate-limiting (access) with policy: %s [#%s]", policy, strategy), function()
       local bp
       local db
       local dao
